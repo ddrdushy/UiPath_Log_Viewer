@@ -99,5 +99,44 @@ namespace LogViewer_V2
                 dataGridView1.Columns[cb.Text].Visible = false;
                 
         }
+
+        private void copyAlltoClipboard()
+        {
+            dataGridView1.SelectAll();
+            DataObject dataObj = dataGridView1.GetClipboardContent();
+            if (dataObj != null)
+                Clipboard.SetDataObject(dataObj);
+        }
+
+        private void Btn_exportToExcel_Click(object sender, EventArgs e)
+        {
+            copyAlltoClipboard();
+            Microsoft.Office.Interop.Excel.Application xlexcel;
+            Microsoft.Office.Interop.Excel.Workbook xlWorkBook;
+            Microsoft.Office.Interop.Excel.Worksheet xlWorkSheet;
+            Microsoft.Office.Interop.Excel.Range excelCellrange;
+
+
+            xlexcel = new Microsoft.Office.Interop.Excel.Application();
+
+            xlexcel.Visible = true;
+            xlexcel.DisplayAlerts = false;
+
+            xlWorkBook = xlexcel.Workbooks.Add(Type.Missing);
+            xlWorkSheet = (Microsoft.Office.Interop.Excel.Worksheet)xlWorkBook.ActiveSheet;
+            xlWorkSheet.Name = "Test work sheet";
+
+            excelCellrange = xlWorkSheet.Range[xlWorkSheet.Cells[1, 1], xlWorkSheet.Cells[dt.Rows.Count, dt.Columns.Count]];
+            excelCellrange.EntireColumn.AutoFit();
+            Microsoft.Office.Interop.Excel.Borders border = excelCellrange.Borders;
+            border.LineStyle = Microsoft.Office.Interop.Excel.XlLineStyle.xlContinuous;
+            border.Weight = 2d;
+
+
+            //Microsoft.Office.Interop.Excel.Range CR = (Microsoft.Office.Interop.Excel.Range)xlWorkSheet.Cells[1, 1];
+            //CR.Select();
+            //xlWorkSheet.PasteSpecial(CR, Type.Missing, Type.Missing, Type.Missing, Type.Missing, Type.Missing, true);
+
+        }
     }
 }
