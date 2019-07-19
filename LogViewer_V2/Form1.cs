@@ -2,9 +2,11 @@
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
+using System.Data.OleDb;
 using System.Drawing;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Windows.Forms;
 using Newtonsoft.Json;
@@ -19,6 +21,7 @@ namespace LogViewer_V2
         public Form1()
         {
             InitializeComponent();
+            btn_exportToExcel.Enabled = false;
             dt = new DataTable();
             Type type = typeof(logClass);
             var properties = type.GetProperties();
@@ -65,28 +68,36 @@ namespace LogViewer_V2
 
         private void Btn_submit_Click(object sender, EventArgs e)
         {
-            
+
             String FileName = txt_fileName.Text;
+            
 
-            using (FileStream fs = File.Open(FileName, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+            if (FileName.ToUpper().Contains("EXECUTION"))
             {
-                using (BufferedStream bs = new BufferedStream(fs))
+                using (FileStream fs = File.Open(FileName, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
                 {
-                    using (StreamReader sr = new StreamReader(bs))
+                    using (BufferedStream bs = new BufferedStream(fs))
                     {
-                        string line;
-                        while ((line = sr.ReadLine()) != null)
+                        using (StreamReader sr = new StreamReader(bs))
                         {
-                            logClass log = JsonConvert.DeserializeObject<logClass>(line.Substring(line.IndexOf("{")));
-                            log.logDate = line.Split(' ')[0];
+                            string line;
+                            while ((line = sr.ReadLine()) != null)
+                            {
+                                logClass log = JsonConvert.DeserializeObject<logClass>(line.Substring(line.IndexOf("{")));
+                                log.logDate = line.Split(' ')[0];
 
-                            dt.Rows.Add(log.GetAllPropertyValues().ToArray());
-                            dataGridView1.Refresh();
+                                dt.Rows.Add(log.GetAllPropertyValues().ToArray());
+                                dataGridView1.Refresh();
+                            }
                         }
                     }
                 }
-            }
 
+                if (dt.Rows.Count > 0)
+                    btn_exportToExcel.Enabled = true;
+            }
+            else
+                MessageBox.Show("Unknown File. Please choose Execution log file");
         }
 
         public void SampleCheckChangedHandler(object objSender, EventArgs ea)
@@ -100,43 +111,43 @@ namespace LogViewer_V2
                 
         }
 
-        private void copyAlltoClipboard()
-        {
-            dataGridView1.SelectAll();
-            DataObject dataObj = dataGridView1.GetClipboardContent();
-            if (dataObj != null)
-                Clipboard.SetDataObject(dataObj);
-        }
-
         private void Btn_exportToExcel_Click(object sender, EventArgs e)
         {
-            copyAlltoClipboard();
-            Microsoft.Office.Interop.Excel.Application xlexcel;
-            Microsoft.Office.Interop.Excel.Workbook xlWorkBook;
-            Microsoft.Office.Interop.Excel.Worksheet xlWorkSheet;
-            Microsoft.Office.Interop.Excel.Range excelCellrange;
+            saveFileDialog1.DefaultExt = "xlsx";
+            saveFileDialog1.Filter = "Excel Files | *.xlsx";
 
+            saveFileDialog1.ShowDialog();
+            String fileName = saveFileDialog1.FileName;
 
-            xlexcel = new Microsoft.Office.Interop.Excel.Application();
+            Microsoft.Office.Interop.Excel.Application ExcelApp = new Microsoft.Office.Interop.Excel.Application();
+            ExcelApp.Application.Workbooks.Add(Type.Missing);
 
-            xlexcel.Visible = true;
-            xlexcel.DisplayAlerts = false;
+            // Change properties of the Workbook 
 
-            xlWorkBook = xlexcel.Workbooks.Add(Type.Missing);
-            xlWorkSheet = (Microsoft.Office.Interop.Excel.Worksheet)xlWorkBook.ActiveSheet;
-            xlWorkSheet.Name = "Test work sheet";
+            ExcelApp.Columns.ColumnWidth = 20;
 
-            excelCellrange = xlWorkSheet.Range[xlWorkSheet.Cells[1, 1], xlWorkSheet.Cells[dt.Rows.Count, dt.Columns.Count]];
-            excelCellrange.EntireColumn.AutoFit();
-            Microsoft.Office.Interop.Excel.Borders border = excelCellrange.Borders;
-            border.LineStyle = Microsoft.Office.Interop.Excel.XlLineStyle.xlContinuous;
-            border.Weight = 2d;
+            // Storing header part in Excel
+            for (int i = 1; i < dataGridView1.Columns.Count + 1; i++)
+            {
+                ExcelApp.Cells[1, i] = dataGridView1.Columns[i - 1].HeaderText;
+            }
 
-
-            //Microsoft.Office.Interop.Excel.Range CR = (Microsoft.Office.Interop.Excel.Range)xlWorkSheet.Cells[1, 1];
-            //CR.Select();
-            //xlWorkSheet.PasteSpecial(CR, Type.Missing, Type.Missing, Type.Missing, Type.Missing, Type.Missing, true);
-
+            // Storing Each row and column value to excel sheet
+            for (int i = 0; i < dataGridView1.Rows.Count - 1; i++)
+            {
+                for (int j = 0; j < dataGridView1.Columns.Count; j++)
+                {
+                    ExcelApp.Cells[i + 2, j + 1] = dataGridView1.Rows[i].Cells[j].Value.ToString();
+                }
+            }
+            
+            ExcelApp.Visible = true;
+            ExcelApp.ActiveWorkbook.SaveCopyAs(fileName);
+            ExcelApp.ActiveWorkbook.Saved = true;
+            Marshal.FinalReleaseComObject(ExcelApp);
         }
+
+      
     }
 }
+
